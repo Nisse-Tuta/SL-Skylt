@@ -2,22 +2,43 @@
 @using System.Text.Json
 @using SL_Skylt.Models
 
-<h2>Barkarby @DateTime.Now.ToShortTimeString()</h2>
+<h2>Barkarby @DateTime.Now.ToShortTimeString()  -  @counter</h2>
 @* <button class="btn btn-secondary" @onclick="FetchDepartures">Refresh Departures</button> *@
 
-<ul>
+@* Refresh vid klick på hela skärmen *@
+<div @onclick="FetchDepartures" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></div>
+
+<hr />
+<ul style="list-style-type:none; margin-left: 0;">
+    @foreach (var departure in departures)
+    {
+        if (departure.Line.Transport_mode == "TRAIN" && departure.Direction_Code == 1)
+        {
+            <li><h4>@departure.Destination - @departure.Display</h4></li>
+        }
+    }
+</ul>
+<ul style="list-style-type:none; margin-left: 0;">
+    @foreach (var departure in departures)
+    {
+        if (departure.Line.Transport_mode == "TRAIN" && departure.Direction_Code == 2)
+        {
+            <li><h4>@departure.Destination - @departure.Display</h4></li>
+        }
+    }
+</ul>
+
+<ul style="list-style-type:none; margin-left: 0;">
     @foreach (var departure in departures)
     {
         if (departure.Line.Transport_mode == "BUS")
         {
-            <li>@departure.Line.Id - @departure.Destination - @departure.Display @departure.LateStr()</li>
-        }
-        else
-        {
-            <li>@departure.Destination - @departure.Display</li>
+            <li><h5>@departure.Line.Id - @departure.Destination - @departure.Display @departure.LateStr()</h5></li>
         }
     }
 </ul>
+
+
 
 @code {
     private readonly int siteCode = 9703;
@@ -25,6 +46,7 @@
     private readonly string siteUrl;
     private Timer timer;
     private List<Departure> departures = new List<Departure>();
+    private int counter = 0;  
 
     public Home()
     {
@@ -45,28 +67,40 @@
         timer?.Dispose();
     }
 
-
     private List<Departure> SortAndClean(List<Departure> departures)
     {
         // Sort by TransportMode 'TRAIN' is first then 'BUS' then by Scheduled time
-        List<Departure> result = departures
-            .OrderBy(d => d.Line.Transport_mode != "TRAIN")
-            .ThenBy(d => d.Line.Transport_mode != "BUS")
+        List<Departure> result = []; 
+
+        List<Departure> trains = departures
+            .Where(d => d.Line.Transport_mode == "TRAIN")
+            .OrderByDescending(d => d.Direction_Code)
             .ThenBy(d => d.Scheduled)
             .Where(d => d.Expected < DateTime.Now.AddMinutes(30))
             .ToList();
 
+        List<Departure> buses = departures
+            .Where(d => d.Line.Transport_mode == "BUS")
+            .OrderBy(d => d.Scheduled)
+            .Where(d => d.Expected < DateTime.Now.AddMinutes(30))
+            .ToList();
+
+
         // split bussestoInclude on ; and select from departures where line.id == 541
         var busLines = bussesToInclue.Split(';').Select(b => b.Split(':')).ToList();
-        result = result.Where(d => d.Line.Transport_mode == "TRAIN" || busLines.Any(b => b[0] == d.Line.Id.ToString() && (b[1] == "*" || b[1] == d.Direction_Code.ToString()))).ToList();
+        buses = buses.Where(d => busLines.Any(b => b[0] == d.Line.Id.ToString() && (b[1] == "*" || b[1] == d.Direction_Code.ToString()))).ToList();
 
-
+        result.AddRange(trains);
+        result.AddRange(buses);
 
         return result;
     }
 
     private async Task FetchDepartures()
     {
+        counter++;
+        Console.WriteLine($"Fetching departures {counter}");
+
         var httpClient = new HttpClient();
         var response = await httpClient.GetAsync(siteUrl);
         if (response.IsSuccessStatusCode)
