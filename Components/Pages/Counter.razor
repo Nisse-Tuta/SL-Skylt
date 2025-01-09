@@ -1,0 +1,53 @@
+﻿@page "/counter"
+@using System.Text.Json
+@using SL_Skylt.Models
+
+<h2>Departures</h2>
+<button class="btn btn-secondary" @onclick="FetchDepartures">Refresh Departures</button>
+
+<ul>
+    @foreach (var departure in departures)
+    {
+        if (departure.Line.Transport_mode == "BUS")
+        {
+            <li>@departure.Line.Id - @departure.Destination - @departure.Display</li>
+        }
+        else
+        {
+            <li>@departure.Destination - @departure.Display</li>
+        }
+    }
+</ul>
+
+@code {
+     private List<Departure> departures = new List<Departure>();
+
+
+    private List<Departure> SortAndClean(List<Departure> departures)
+    {
+        // Sort by TransportMode 'TRAIN' is first then 'BUS' then by Scheduled time
+        List<Departure> result = departures
+            .OrderBy(d => d.Line.Transport_mode != "TRAIN")
+            .ThenBy(d => d.Line.Transport_mode != "BUS")
+            .ThenBy(d => d.DirectionCode)
+            .ThenBy(d => d.Scheduled)
+            .ToList();
+
+        return result;
+    }
+
+    private async Task FetchDepartures()
+    {
+        var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync("https://transport.integration.sl.se/v1/sites/9703/departures");
+        if (response.IsSuccessStatusCode)
+        {
+            var data = await response.Content.ReadAsStringAsync();
+            var departureResponse = JsonSerializer.Deserialize<DeparturesResponse>(data, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            departures = SortAndClean(departureResponse?.Departures);
+        }
+    }
+}
