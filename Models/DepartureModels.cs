@@ -9,7 +9,7 @@ namespace SL_Skylt.Models;
 public class Departure
 {
     public string Destination { get; set; } = string.Empty;
-    public int DirectionCode { get; set; } = 0;
+    public int Direction_Code { get; set; } = 0;
     public string Direction { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
     public string Display { get; set; } = string.Empty;
@@ -20,6 +20,19 @@ public class Departure
     public StopPoint StopPoint { get; set; } = new StopPoint();
     public Line Line { get; set; } = new Line();
     public List<object> Deviations { get; set; } = new List<object>();
+
+
+    // if scheduled time is not equal to expected time, return string with difference in minutes
+    public string LateStr()
+    {
+        if (Scheduled != Expected)
+        {
+            TimeSpan timeDifference = Expected - Scheduled;
+            return "(-" + timeDifference.Minutes.ToString() + ")";
+        }
+        return string.Empty;
+    }
+
 }
 
 public class Journey
